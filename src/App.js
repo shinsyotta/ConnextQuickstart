@@ -1,46 +1,16 @@
 import * as connext from '@connext/client';
+import { CF_PATH } from "@connext/types";
 import { AddressZero } from "ethers/constants";
 import { parseEther } from "ethers/utils";
+import { fromExtendedKey, fromMnemonic } from "ethers/utils/hdnode";
+import Store from "./store";
+require('dotenv').config();
 
-export const store = {
-  get: (path) => {
-    const raw = localStorage.getItem(`CF_NODE:${path}`)
-    if (raw) {
-      try {
-        return JSON.parse(raw);
-      } catch {
-        return raw;
-      }
-    }
-    // Handle partial matches so the following line works -.-
-    // https://github.com/counterfactual/monorepo/blob/master/packages/node/src/store.ts#L54
-    if (path.endsWith("channel") || path.endsWith("appInstanceIdToProposedAppInstance")) {
-      const partialMatches = {}
-      for (const k of Object.keys(localStorage)) {
-        if (k.includes(`${path}/`)) {
-          try {
-            partialMatches[k.replace('CF_NODE:', '').replace(`${path}/`, '')] = JSON.parse(localStorage.getItem(k))
-          } catch {
-            partialMatches[k.replace('CF_NODE:', '').replace(`${path}/`, '')] = localStorage.getItem(k)
-          }
-        }
-      }
-      return partialMatches;
-    }
-    return raw;
-  },
-  set: (pairs, allowDelete) => {
-    for (const pair of pairs) {
-      localStorage.setItem(
-        `CF_NODE:${pair.path}`,
-        typeof pair.value === 'string' ? pair.value : JSON.stringify(pair.value),
-      );
-    }
-  }
-};
+// create new store, see `store.js`
+const store = new Store(process.env.DB_FILE);
 
 async function magicalChannelMagic() {
-console.log("#1");
+console.log(`playin around with connext, a series of bugs knitted together to work magically a meaningful percentage of the time`);
 
 // // MAINNET
 // const options: ClientOptions = {
@@ -50,12 +20,26 @@ console.log("#1");
 //   store
 // }
 
+const mnemonic = process.env.RINKEBY_MNEMONIC;
+
+// youll see a lot to do with your xpub and free balance address,
+// lets log those here before we get started.
+const hdNode = fromExtendedKey(fromMnemonic(mnemonic).extendedKey).derivePath(CF_PATH);
+const xpub = hdNode.neuter().extendedKey;
+// the free balance address is what will be used to deposit from
+// when calling `channel.deposit`, so it must be loaded
+const freeBalanceAddr = connext.utils.xpubToAddress(xpub);
+
+console.log(`using xpub: ${xpub}`);
+console.log(`free balance address: ${freeBalanceAddr}`);
+
 // RINKEBY
 // 3 ETH on 0x38ab31363527c36322B611D6dFfd8D8FCF3d9D3F
+// 2 ETH on 0x3150cf6A66dE378B5b155C274CcF548effbb87cE
 const options = {
-  mnemonic: 'machine dismiss fame stamp idea baby bubble panther unit kick question blind extend learn order always ribbon scrub dignity hobby brown cry rare rapid',
-  nodeUrl: 'nats://rinkeby.indra.connext.network/api/messaging',
-  ethProviderUrl: `https://rinkeby.indra.connext.network/api/ethprovider`,
+  mnemonic,
+  nodeUrl: 'nats://staging.indra.connext.network/api/messaging',
+  ethProviderUrl: `https://staging.indra.connext.network/api/ethprovider`,
   store
 };
 // rpcProviderUrl	String	the Web3 provider URL used by the client
@@ -69,10 +53,16 @@ const options = {
 // natsUrl?	String	Initially hardcoded
 // natsClusterId?	String	Initially hardcoded
 // natsToken?	String	Initially hardcoded
-console.log("#2");
+console.log(`generated opts, trying to connect`);
 
 const channel = await connext.connect(options);
-console.log("#3");
+console.log(`channel connected with options:`);
+console.log(`   - mnemonic: ${options.mnemonic}`)
+console.log(`   - nodeUrl: ${options.nodeUrl}`)
+console.log(`   - ethProviderUrl: ${options.ethProviderUrl}`)
+console.log(`   - publicIdentifier: ${channel.publicIdentifier}`)
+console.log(`   - freeBalanceAddress: ${channel.freeBalanceAddress}`)
+
 
 // // Making a deposit in ETH
 // import { AddressZero } from "ethers/constants";
@@ -82,13 +72,17 @@ const payload = {
   amount: parseEther("0.1").toString(), // in wei/wad (ethers.js methods are very convenient for getting wei amounts)
   assetId: AddressZero // Use the AddressZero constant from ethers.js to represent ETH, or enter the token address
 }
-console.log("#4");
+console.log(`created deposit payload, registering listeners`);
 
-connext.on("DEPOSIT_STARTED", () => {
-  console.log("Your deposit has begun")
-  this.showDepositStarted()
+channel.on("DEPOSIT_STARTED_EVENT", (data) => {
+  console.log(`Your deposit has begun: ${JSON.stringify(data, null, 2)}`)
 });
-console.log("#5");
+channel.on("DEPOSIT_CONFIRMED_EVENT", async (data) => {
+  console.log(`Your deposit has completed: ${JSON.stringify(data, null, 2)}`)
+  const fb = await channel.getFreeBalance()
+  console.log(`Updated user eth balance: ${fb[channel.freeBalanceAddress].toString()}`)
+});
+console.log(`listeners registered, calling deposit`);
 
 await channel.deposit(payload)
 
@@ -135,30 +129,30 @@ await channel.deposit(payload)
 //   return;
 // }
 //
-// CHALLENGE_INITIATED
-// CHALLENGE_RESPONDED
-// CHALLENGE_RESOLVED
-// COUNTER_DEPOSIT_CONFIRMED
-// CREATE_CHANNEL
-// DEPOSIT_CONFIRMED
-// DEPOSIT_FAILED
-// DEPOSIT_STARTED
-// INSTALL
-// INSTALL_VIRTUAL
-// PROPOSE_INSTALL
-// PROPOSE_INSTALL_VIRTUAL
-// PROPOSE_STATE
-// PROTOCOL_MESSAGE_EVENT
-// REJECT_INSTALL
-// REJECT_INSTALL_VIRTUAL
-// REJECT_STATE
-// UNINSTALL
-// UNINSTALL_VIRTUAL
-// UPDATE_STATE
-// WITHDRAW_EVENT
-// WITHDRAWAL_CONFIRMED
-// WITHDRAWAL_FAILED
-// WITHDRAWAL_STARTED
+
+// Available connext events to listen to are: 
+// export const ConnextEvents = {
+//   CREATE_CHANNEL_EVENT: "CREATE_CHANNEL_EVENT",
+//   DEPOSIT_CONFIRMED_EVENT: "DEPOSIT_CONFIRMED_EVENT",
+//   DEPOSIT_FAILED_EVENT: "DEPOSIT_FAILED_EVENT",
+//   DEPOSIT_STARTED_EVENT: "DEPOSIT_STARTED_EVENT",
+//   INSTALL_EVENT: "INSTALL_EVENT",
+//   INSTALL_VIRTUAL_EVENT: "INSTALL_VIRTUAL_EVENT",
+//   RECIEVE_TRANSFER_FAILED_EVENT: "RECIEVE_TRANSFER_FAILED_EVENT",
+//   RECIEVE_TRANSFER_FINISHED_EVENT: "RECIEVE_TRANSFER_FINISHED_EVENT",
+//   RECIEVE_TRANSFER_STARTED_EVENT: "RECIEVE_TRANSFER_STARTED_EVENT",
+//   REJECT_INSTALL_EVENT: "REJECT_INSTALL_EVENT",
+//   UNINSTALL_EVENT: "UNINSTALL_EVENT",
+//   UNINSTALL_VIRTUAL_EVENT: "UNINSTALL_VIRTUAL_EVENT",
+//   UPDATE_STATE_EVENT: "UPDATE_STATE_EVENT",
+//   WITHDRAWAL_CONFIRMED_EVENT: "WITHDRAWAL_CONFIRMED_EVENT",
+//   WITHDRAWAL_FAILED_EVENT: "WITHDRAWAL_FAILED_EVENT",
+//   WITHDRAWAL_STARTED_EVENT: "WITHDRAWAL_STARTED_EVENT",
+//   PROPOSE_INSTALL_EVENT: "PROPOSE_INSTALL_EVENT",
+//   PROTOCOL_MESSAGE_EVENT: "PROTOCOL_MESSAGE_EVENT"
+// };
+// and can be imported as:
+// import { ConnextEvents, ConnextEvent } from "@connext/types"
 //
 // connext.on("DEPOSIT_STARTED", () => {
 //   console.log("Your deposit has begun")
