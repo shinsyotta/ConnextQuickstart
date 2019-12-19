@@ -82,6 +82,7 @@ channel.on("DEPOSIT_CONFIRMED_EVENT", async (data) => {
   const fb = await channel.getFreeBalance()
   console.log(`Updated user eth balance: ${fb[channel.freeBalanceAddress].toString()}`)
 });
+// channel.on("")
 console.log(`listeners registered, calling deposit`);
 
 await channel.deposit(payload)
@@ -101,15 +102,15 @@ await channel.deposit(payload)
 // // Transferring ETH
 // import { AddressZero } from "ethers/constants";
 // import { parseEther } from "ethers/utils";
+
+const payload: TransferParams = {
+  recipient: "xpub6EFZf2akgmkPEy49K4xmZgwfspYRjfy89j3WUCtbk53XAeZApE7dDWJrTv7nvoQPYWEY9w5zjnR5PmGKUh9FBWJiJsSoyb6vNPKQYELr7HS"  // <-- Laptop  //counterparty's xPub // Desktop: xpub6E4pdmd9dV7vWMExS4ComHiPj7STndSmyWJWyn4G2U8sDGcxwp4V6TDkS2WScCCMtUtfFSaND69HySuZag25PG7K7PoYYVxABWtm5tZip2f
+  meta: "Metadata for transfer" // any string value, or omit
+  amount: parseEther("0.1").toString() // in wei (ethers.js methods are very convenient for getting wei amounts)
+  assetId: AddressZero // ETH
+}
 //
-// const payload: TransferParams = {
-//   recipient: "xpub1abcdef"  //counterparty's xPub
-//   meta: "Metadata for transfer" // any string value, or omit
-//   amount: parseEther("0.1").toString() // in wei (ethers.js methods are very convenient for getting wei amounts)
-//   assetId: AddressZero // ETH
-// }
-//
-// await channel.transfer(payload)
+await channel.transfer(payload)
 
 // // Withdrawing ETH
 // import { AddressZero } from "ethers/constants";
