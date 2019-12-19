@@ -10,7 +10,7 @@ require('dotenv').config();
 const store = new Store(process.env.DB_FILE);
 
 async function magicalChannelMagic() {
-console.log(`playin around with connext, a series of bugs knitted together to work magically a meaningful percentage of the time`);
+console.log(`playing around with connext, a series of bugs knitted together to work magically a meaningful percentage of the time`);
 
 // // MAINNET
 // const options: ClientOptions = {
@@ -130,7 +130,7 @@ await channel.deposit(payload)
 // }
 //
 
-// Available connext events to listen to are: 
+// Available connext events to listen to are:
 // export const ConnextEvents = {
 //   CREATE_CHANNEL_EVENT: "CREATE_CHANNEL_EVENT",
 //   DEPOSIT_CONFIRMED_EVENT: "DEPOSIT_CONFIRMED_EVENT",
